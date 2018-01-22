@@ -1,0 +1,453 @@
+
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Audio Denoising </title>
+  <style>
+body {
+    font-family:'Avenir';
+    font-size:15px;
+}
+p {
+	width:1000px;
+}
+
+.center {
+		text-align: center;
+		margin-left:200px;
+
+}
+</style>
+<script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-MML-AM_CHTML'></script>
+
+  </head>
+
+   <body>
+    
+
+<header class="overview">
+  <div class="container">
+    <h1 style="text-align:center;">Blind Source Separation</h1>
+    <div class="demo">
+  <!-- Include wavesurfer.js from cdnjs -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/wavesurfer.js/1.2.6/wavesurfer.min.js"></script>
+
+  <!-- Define an HTML element where the waveform should appear -->
+  <div id="waveform" style="width:500px; margin-left:450px;">
+    <progress id="progress" class="progress progress-striped" value="0" max="100"></progress>
+  </div>
+
+  <script>
+
+    var wavesurfer1 = WaveSurfer.create({
+      // Use the id or class-name of the element you created, as a selector
+      container: '#waveform',
+      // The color can be either a simple CSS color or a Canvas gradient
+      waveColor: "black",
+      progressColor: 'blue',
+      cursorColor: '#fff',
+
+     //  This parameter makes the waveform look like SoundCloud's player
+      barWidth: 3
+    });
+
+    wavesurfer1.on('loading', function (percents) {
+      document.getElementById('progress').value = percents;
+    });
+
+    wavesurfer1.on('ready', function (percents) {
+      document.getElementById('progress').style.display = 'none';
+    });
+
+    wavesurfer1.load('final-project-front.wav');
+  </script>
+
+  <div class="controls" style="text-align:center;">
+
+    <button class="btn btn-primary" onclick="wavesurfer1.playPause()">
+      <i class="fa fa-play"></i>
+      Play
+      /
+      <i class="fa fa-pause"></i>
+      Pause
+    </button>
+
+    <button class="btn btn-primary" onclick="wavesurfer.skipForward()">
+      <i class="fa fa-step-forward"></i>
+      Forward
+    </button>
+
+    <button class="btn btn-primary" onclick="wavesurfer.toggleMute()">
+      <i class="fa fa-volume-off"></i>
+      Toggle Mute
+    </button>
+<h3> Motivation and Problem</h3>
+    <p class="center"> Augmented reality in sound is used in hearing aids, surveillance, and other applications. Using the power of sound. Audio has not been as focused on as much as other forms of information, such as image and text. However, there is still much value in audio. -whether that be for journalists in the field recording audio from interviews, in walkie-talkies, or to improve speech to text. The main reason why audio is not used as much for information retrieval is due to the failure of speech to text to convert audio files to text, much of which is due to background noise. intuitively, the BSS problem is: given a mixed signal, how can you extract the original signals? Technically, the BSS problem, can be written as:
+  $$ X = As $$ where s is the original signals, A is the mixing matrix, and X is the mixed signals.
+The aim is to find W that is the inverse of A 
+  $$P = AW$$ is the gauge of how good W is. Ideally, P is I, the  identity matrix. However, as the separated sources may not come with the same order and scale as the original sources, the matrix P should ideally be an identity up to a permutation and scale. See the repository with all the code <a href="https://github.com/pruksmhc/audio-denoising" ><strong>here</strong></a>
+  <h2> What specific problem am I solving? </h2>
+  How do three different paradigms of approaching the blind source separation problem compare qualitatively and quantitatively?
+
+  <ul>The three paradigms I will tackle focus on different priors:
+  <li>
+ICA - Looking at the independence of the sources and looking at the assumption that mixed signals are more Gaussian than the original.</li>
+  <li>Compressive Sensing - Sounds can be represented using basis functions - with the knowledge of these basis functions, reconstruct each signal in the mixed signal.
+</li>
+  <li>Deep Learning - Focuses on the predictability of a signal (can be approximated by a linear combination of their values int he past), focusing on finding parameters in a search space to approximate W. </li>
+
+  <h2> How will I mark my progress? </h2>
+  I have absolutely no clue about anything DSP related, and am not sure what the state-of-the-art for BSS is. My goalis to <strong> ultimately </strong> be able to get all three algorithms working and compare them, but as I am unsure of how mcuh literature is out there, my secondary goal is to know what i need to know further. 
+
+  <h2><ul>Steps</h3>
+   <li>  2) Gain domain knowledge </li>
+      <li> 1) Be able to generate mixed audio</li>
+    <li> 3) How to evaluate? </li>
+    <li> 4) Just do it - literature review for all of 3.  </li>
+    <li> 5) Further things to do.  </li>
+
+<h2> Part I: Understanding of crucial concepts in DSP</h2>
+<p class="center"> I had never daelt with digital processing before, so the below is a tour through 
+  domain knowledge</p>
+    <ul>Useful Links and Bcakground
+  <li><a href="https://processing.org/tutorials/sound/">Basics of Digital Signal Processing</a></li>
+  <li><a href="https://www.ee.columbia.edu/~ronw/pubs/ronw-thesis.pdf">Source Separation using Speaker Subspace Modles</a></li>
+    <li><a href="http://www.ijettjournal.org/volume-4/issue-9/IJETT-V4I9P135.pdf">Speech Denoising using Wavelet Techniques</a></li>
+http://excedrin.media.mit.edu/wp-content/uploads/sites/10/2013/07/AES99.pdf
+</ul>  
+<h2> Fourier Transform</h2>
+  <p class="center">
+    First, let us look at the <a href="https://betterexplained.com/articles/an-interactive-guide-to-the-fourier-transform/">fourier transform</a></p>
+    <p  class="center">  The Fourier transform is able to detect the structure behind signals, stripping them to their sinusoid functions</p>
+    <p  class="center">  Here is the fourier transform (both DFT and FFT that I implemented) running on a signal for safety check. The x-axis for post FFT is the frequency and the y is the amplitude.
+
+    </p>
+<p>
+  The fourier transform by itself does not do blind source separation, but it is a crucial transform.</p>
+  <img src="pictures/Ex1.jpg"></img> 
+  <img src ="pictures/ex1f.jpg"></img>
+  <p class="center"> Here is the audio spectrum of the audio file above of the crowded bar.</p>
+    <img src="pictures/ex2.jpg"></img> 
+  <img src ="pictures/ex2f.jpg"></img>
+<p class="center">Find the code for FFTs <a href="Untitled.html">here</a>
+  </p>
+
+
+<div class="center">
+<h2 > BSS Definitions Shortcut </h3>
+  <p>
+Let us start with some definitions of the types of priors that are looked at when evaluating separability. 
+-Kurtosis 
+-Entropy 
+</p>
+  <h2 > Audio Mixing</h2>
+ <p >To test, we will be artificially mixing various sound samples. Here, we have two sounds - let us mix them together with this <a href="mix_audio.py">code</a>
+     <p>
+Man with threatening voice (Voice 2)
+</p>
+
+     <!-- Define an HTML element where the waveform should appear -->
+  <div id="waveform3" style="width:500px; margin-left:200px;">
+    <progress id="progress" class="progress progress-striped" value="0" max="100"></progress>
+  </div>
+
+  <script>
+
+    var wavesurfer3 = WaveSurfer.create({
+      // Use the id or class-name of the element you created, as a selector
+      container: '#waveform3',
+      // The color can be either a simple CSS color or a Canvas gradient
+      waveColor: "black",
+      progressColor: 'blue',
+      cursorColor: '#fff',
+
+     //  This parameter makes the waveform look like SoundCloud's player
+      barWidth: 3
+    });
+
+    wavesurfer3.on('loading', function (percents) {
+      document.getElementById('progress').value = percents;
+    });
+
+    wavesurfer3.on('ready', function (percents) {
+      document.getElementById('progress').style.display = 'none';
+    });
+
+    wavesurfer3.load('tbawht02.wav');
+  </script>
+
+  <div class="controls" style="text-align:center;">
+
+    <button class="btn btn-primary" onclick="wavesurfer3.playPause()">
+      <i class="fa fa-play"></i>
+      Play
+      /
+      <i class="fa fa-pause"></i>
+      Pause
+    </button>
+
+</p>
+Voice citing poetry (Voice 1)
+  <!-- Define an HTML element where the waveform should appear -->
+  <div id="waveform2" style="width:500px; margin-left:200px;">
+    <progress id="progress" class="progress progress-striped" value="0" max="100"></progress>
+  </div>
+
+  <script>
+
+    var wavesurfer2 = WaveSurfer.create({
+      // Use the id or class-name of the element you created, as a selector
+      container: '#waveform2',
+      // The color can be either a simple CSS color or a Canvas gradient
+      waveColor: "black",
+      progressColor: 'blue',
+      cursorColor: '#fff',
+
+     //  This parameter makes the waveform look like SoundCloud's player
+      barWidth: 3
+    });
+
+    wavesurfer2.on('loading', function (percents) {
+      document.getElementById('progress').value = percents;
+    });
+
+
+    wavesurfer2.load('poem_2.wav');
+
+  </script>
+
+  <div class="controls" style="text-align:center;">
+
+    <button class="btn btn-primary" onclick="wavesurfer2.playPause()">
+      <i class="fa fa-play"></i>
+      Play
+      /
+      <i class="fa fa-pause"></i>
+      Pause
+    </button>
+
+    <p>
+Mixed Audio (Microphone 1)
+</p>
+
+     <!-- Define an HTML element where the waveform should appear -->
+  <div id="waveform4" style="width:500px; margin-left:200px;">
+    <progress id="progress" class="progress progress-striped" value="0" max="100"></progress>
+  </div>
+
+  <script>
+
+    var wavesurfer4 = WaveSurfer.create({
+      // Use the id or class-name of the element you created, as a selector
+      container: '#waveform4',
+      // The color can be either a simple CSS color or a Canvas gradient
+      waveColor: "black",
+      progressColor: 'blue',
+      cursorColor: '#fff',
+
+     //  This parameter makes the waveform look like SoundCloud's player
+      barWidth: 3
+    });
+
+    wavesurfer4.on('loading', function (percents) {
+      document.getElementById('progress').value = percents;
+    });
+
+    wavesurfer4.on('ready', function (percents) {
+      document.getElementById('progress').style.display = 'none';
+    });
+
+    wavesurfer4.load('mix.wav');
+  </script>
+
+  <div class="controls" style="text-align:center;">
+
+    <button class="btn btn-primary" onclick="wavesurfer4.playPause()">
+      <i class="fa fa-play"></i>
+      Play
+      /
+      <i class="fa fa-pause"></i>
+      Pause
+    </button>
+
+<p>
+Mixed Audio (Microphone 2)
+</o>
+     <!-- Define an HTML element where the waveform should appear -->
+  <div id="waveform5" style="width:500px; margin-left:200px;">
+    <progress id="progress" class="progress progress-striped" value="0" max="100"></progress>
+  </div>
+
+  <script>
+
+    var wavesurfer5 = WaveSurfer.create({
+      // Use the id or class-name of the element you created, as a selector
+      container: '#waveform5',
+      // The color can be either a simple CSS color or a Canvas gradient
+      waveColor: "black",
+      progressColor: 'blue',
+      cursorColor: '#fff',
+
+     //  This parameter makes the waveform look like SoundCloud's player
+      barWidth: 3
+    });
+
+    wavesurfer5.on('loading', function (percents) {
+      document.getElementById('progress').value = percents;
+    });
+
+    wavesurfer5.on('ready', function (percents) {
+      document.getElementById('progress').style.display = 'none';
+    });
+
+    wavesurfer5.load('mix2.wav');
+  </script>
+
+  <div class="controls" style="text-align:center;">
+
+    <button class="btn btn-primary" onclick="wavesurfer5.playPause()">
+      <i class="fa fa-play"></i>
+      Play
+      /
+      <i class="fa fa-pause"></i>
+      Pause
+    </button>
+  </div>
+<h3> How will I evaluate each algorithm?</h3>
+<p>I will draw guidelines from this <a href="http://paris.cs.illinois.edu/pubs/smaragdis-ica99.pdf">paper</a>, looking at 
+distortion. 
+By distortion we mean how the original signals are distorted from the mixed signals in the absence of other source signals.
+The equations are below. 
+</p>
+<div>
+<img src="distortion.jpg" sylte="margin-left:-10px"></img>
+</div>
+<p>
+And here is the  <a href="test_ica.py">code</a>
+<p>
+
+
+  <h3> Part III: Multi-source separation implementation + benchmarking</h2>
+
+<h3> Independent Component Analysis</h3>
+
+There is another branch of BSS that has been devleoped on top of ICAs:
+https://link.springer.com/chapter/10.1007/11679363_21
+There has also been <a href="http://www.itfrindia.org/ICCIC/Vol2/255ICCIC.pdf">work</a> dealing with creating varioushttp://www.itfrindia.org/ICCIC/Vol2/255ICCIC.pdf
+
+
+<p style="text-align:left;">
+Voice 1 before, mixed, and estimate
+<span style="float:right;">Voice 2 before, mixed, and estimated </span>
+</p>
+  <img src ="man_talking_all.jpg" style="float: left; width: 50%"></img>
+
+<div>
+    <img src="poem_all.jpg" style="float: right; width: 50%">></img> </div>
+ 
+I implemented FastiCA with logcosh to the problem, implementing the ICA method in this
+ <a href="ICA.html">iPython notebook</a>.
+
+<h3> Evaluation </h3> 
+
+Below are the two audio files after going through ICA with log cosh function. 
+
+<div>
+Estimated source 1
+</div>
+     <!-- Define an HTML element where the waveform should appear -->
+    <div>
+<audio controls style="margin-top:20px; margin-bottom:20px;">
+  <source src="unmixed1ica.wav" type="audio/wav">
+</audio>
+</div>
+
+<div>
+Estimated source 2
+</div>
+<div>
+     <!-- Define an HTML element where the waveform should appear -->
+<audio controls style="margin-top:20px; margin-bottom:20px;">
+  <source src="unmixed2ica.wav" type="audio/wav">
+</audio>
+</div>
+
+Qualitatively, FastICA preformed well for Source A, and not so well with Source B, although it significantly separated both voices.
+Distortion for voice 1 is 63.891529805 while voice 2 is 37.458170624.
+
+</p>
+<h3> Deep Learning </h3>
+AH buzzwords. After doing some literature review (of which there isn't a lot that came up), there hasn't seemed to be an effective way to use deep learning for BSS. However, there are also few articles in general on this subject, so I decided to take a crack at it and implement one of the 
+<a href="http://www.inf.fu-berlin.de/inst/ag-ki/ger/B-06-04.pdf">papers</a>
+
+here
+
+ Here, Sam and I assumed that the algorithm starts at k instead of filling with 0s or wrapping around, and here are the results of the separation.
+
+<p> Estimated Voice 1</p>
+     <!-- Define an HTML element where the waveform should appear -->
+<audio controls style="margin-top:20px; margin-bottom:20px;">
+  <source src="DL_res.wav" type="audio/wav">
+</audio>
+<div>
+<img src="DL_1.jpg"></img>
+<img src="DL_2.jpg"></img>
+</div>
+  <p> Estimated Voice 2 (which it failed to extract)</p>
+  <audio controls style="margin-top:20px; margin-bottom:20px;">
+  <source src="DL_res2.wav" type="audio/wav">
+</audio>
+<div>
+<img src="DL_3.jpg"></img>
+<img src="DL_4.jpg"></img>
+</div>
+
+<p>Notes:  Simulated annealing could be used instead of back propagation. </p>
+<strong>Evaluation</strong> Deep learning method produced an average distortion of 72.9566240393 for voice 1, and 40.26824952131 for voice 2. 
+Here is all of my <a href="work.html"> work </a> for the <a href="NN.html">code</a>.
+
+</a>
+
+
+<h3 margin-left="margin-left:-40px"> Compression Sensing </h3>
+<p>Compression sensing (CS) remarkably reduces the amount of sampling needed to restore a signal exactly - instead of sampling at least twice the frequency of a signal, CS depends on the number of non-zero frequencies. It is based on the assumption that audio signals are sparse. Here, the basis used is the Discrete Cosine Transform (DCT), and using L1 norms, we can reconstruct the original signals. The literature review for this. Other than a few papers by Michael Z , who explores Bayesian priors of BSS to tackle the case where we do not know A, there is not as much research with BSS using compressed sensing - most CS papers are on reconstruction of one signal. A whole another question is - how to find the basis functions for each audio stream, especially for human voices? There is one 
+
+<a href="http://sunbeam.ece.wisc.edu/csaudio/"> demo</a> online with CS for BSS, which fails pretty badly for voices </p>
+<p>
+Here are some cool papers:
+</p>
+ <a href="http://www.ijarcsms.com/docs/paper/volume3/issue5/V3I5-0073.pdf"> CS applied wtih ICA </a>
+
+There isn't that much 
+<p>Here are the results of ocmpression sensing, after modifying it using L1 norm to retrieve more than 1 signal at a time.</p>
+
+<img src="CS_res.jpg"  border="0"/>
+<p>
+Here is the <a href="compression.md"> Matlab code </a>. I also started translating to  
+<a href="CS.html" > Python </a>.</p>
+
+ <div>
+<p> For compression sensing, we must represent audio sources as a combination of basis functions such that
+</div>
+<img src="http://latex.codecogs.com/svg.latex?X=AS%20+&\X\xi" border="0"/>
+<img src="http://latex.codecogs.com/svg.latex?S=C&\X\phi" border="0"/>
+TThe literature in this field has been in the L1 norm. Here, we use the L1 norm minimization to extract the x, which is the original signals. Here, we use gradient descent.
+
+
+</p>
+<a href="http://www2.ece.ohio-state.edu/~chi/papers/CompressiveBSS_ICIP2010.pdf">
+http://www2.ece.ohio-state.edu/~chi/papers/CompressiveBSS_ICIP2010.pdf</a>
+</body>
+
+<H3> Futher areas to delve into </h3>
+ <p> In the case of over complete ICA, it is still possible to identify the mixing matrix from the knowledge of x alone, although it is not possible to uniquely recover the sources s. An area to delve deeper in is how to best reconstruct the unique sources. Here, we have only considered instantaneous sources. There is also BSS with regards to noise. There are two major approaches: blind source separation and spatial filtering. The first relies on the statistical independence and super-Gaussian distribution of the speech signals. The spatial filtering uses the fact that speech sources are separated in the space, which is an active field of research at Microsoft Research.
+
+</p>
+<h3> Next Steps </h3>
+<p>I want to continue with this - perhaps explore this further my senior year, looking specifically at how to find basis function representation for compressed sensing - since that seems to be the key to making blind source separation real time.
+</p>
+<h3> Misc Notes</h3>
+
+</html>
